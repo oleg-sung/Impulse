@@ -1,14 +1,7 @@
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field, EmailStr
-
-
-class Token(BaseModel):
-    code: str
-    is_active: bool = Field(default=False)
-    auth_count: int
-    user_id: str
+from pydantic import BaseModel, EmailStr
 
 
 class UserType(str, Enum):

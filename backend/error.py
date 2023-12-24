@@ -24,6 +24,3 @@ def error_handler(er: HttpError):
     http_response.status_code = er.status_code
     return http_response
 
-
-def password_validate(password: str):
-    ...
