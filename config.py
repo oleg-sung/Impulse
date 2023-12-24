@@ -1,5 +1,9 @@
 import os
 
+from dotenv import load_dotenv
+
+
+
 
 class Config(object):
     # Определяет, включен ли режим отладки
@@ -13,6 +17,7 @@ class Config(object):
     # данных, например cookies.
     SECRET_KEY = os.environ.get('SECRET_KEY', None)
 
+    load_dotenv()
     # Send email settings
     MAIL_SERVER = os.environ.get('MAIL_SERVER', None)
     MAIL_PORT = os.environ.get('MAIL_PORT', None)
@@ -29,5 +34,3 @@ class ProductionConfig(Config):
 class DevelopmentConfig(Config):
     DEVELOPMENT = True
     DEBUG = True
-
-

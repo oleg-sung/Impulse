@@ -1,10 +1,9 @@
 from flask_mail import Message
 
-from app.main import app, mail
+from manage import app, mail
 
 
-def send_mail(subject, recipient, email_link, **kwargs):
+def send_mail(subject: str, recipient: str, email_link: str, **kwargs) -> None:
     msg = Message(subject, sender=app.config['MAIL_DEFAULT_SENDER'], recipients=[recipient])
     msg.html = email_link
     mail.send(msg)
-    return True
