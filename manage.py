@@ -14,9 +14,11 @@ mail = Mail(app)
 
 from backend.users.view import user_api
 from backend.tokens.view import token_api
+from backend.collection.view import collection_api
 
 app.register_blueprint(user_api, url_prefix='/user')
 app.register_blueprint(token_api, url_prefix='/token')
+app.register_blueprint(collection_api, url_prefix='/collection')
 app.register_error_handler(HttpError, error_handler)
 
 

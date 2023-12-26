@@ -135,6 +135,11 @@ def login_to_firebase(email: str, password: str) -> dict:
 
 
 def send_password_reset_link(email: str) -> dict:
+    """
+    Send letter with link to reset password to user's email address
+    :param: email: user's email
+    :return: status dict
+    """
     try:
         link = fb_auth.generate_password_reset_link(email)
         subject = 'Password Reset'

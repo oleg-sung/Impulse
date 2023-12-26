@@ -27,4 +27,6 @@ def authorization(f):
             user_dict = {'user': user_info['users'][0], 'user_profile': user_data}
             request.user = user_dict
             return f(*args, **kwargs)
+        else:
+            raise HttpError(400, 'Permission denied')
     return decorator
