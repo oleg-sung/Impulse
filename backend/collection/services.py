@@ -7,7 +7,7 @@ from google.cloud.firestore_v1 import DocumentSnapshot
 from google.cloud.storage import Blob
 from werkzeug.datastructures.file_storage import FileStorage
 
-from backend.collection.schema import Collection, Card
+from backend.collection.schema import Collection, Card, UpdateSizeCollection
 from backend.collection.validators import image_validate
 from backend.error import validate, HttpError
 from firebase_db import collection_model, bucket
@@ -115,7 +115,7 @@ def update_data_collection(collection_doc: DocumentSnapshot, **kwargs) -> dict:
         collection_doc.reference.update({**kwargs})
     except NotFound:
         raise HttpError(404, f'Collection not found')
-    return {'status': f'Collection has updated successful'}
+    return {'status': f'Collection {kwargs} has updated successful'}
 
 
 def add_card_to_collection(collection_doc: DocumentSnapshot, path: str) -> dict:
@@ -191,3 +191,23 @@ def make_thumbnail(image: bytes) -> io.BytesIO:
     image.save(image_bytes, format=image.format)
     image = io.BytesIO(image_bytes.getvalue())
     return image
+
+
+def change_size_collection(collection_id: str, data: dict) -> dict:
+    """
+    Change the size of collection
+    :param collection_id: the collection id
+    :param data: dict with a new size of collection for changing
+    :return: dict with status of change
+    """
+    collection_doc = get_collection_by_id(collection_id)
+    collection_dict = collection_doc.to_dict()
+    data = validate(data, UpdateSizeCollection)
+    if len(collection_dict['cards']) > data['size']:
+        raise HttpError(
+            400,
+            {'message': 'there are more images in the collection than in the new size'}
+        )
+    data = update_data_collection(collection_doc, **data)
+
+    return data

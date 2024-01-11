@@ -4,11 +4,12 @@ from flask import request
 
 from backend.error import HttpError
 from backend.users.services import get_user_info_by_token, get_user_profile_info_by_id
+from firebase_db import fb_auth
 
 
 def authorization(f):
     """
-    Decorator for verifying user authorization using Authorization header from request
+    Decorator for verifying user authorization using Session cookie from request
     Add dict with user information to request
     :param f: function to be decorated
     :return: function's decorator
@@ -16,15 +17,14 @@ def authorization(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization']
+        if 'Session_cookie' in request.cookies:
+            token = request.cookies['Session_cookie']
         if not token:
             raise HttpError(400, 'Permission denied')
-        user_info = get_user_info_by_token(token)
-        user_id = user_info['users'][0]['localId']
-        user_data = get_user_profile_info_by_id(user_id)
+        user = fb_auth.verify_session_cookie(token)
+        user_data = get_user_profile_info_by_id(user['user_id'])
         if user_data['user_type'] == 'admin':
-            user_dict = {'user': user_info['users'][0], 'user_profile': user_data}
+            user_dict = {**user, 'user_profile': user_data}
             request.user = user_dict
             return f(*args, **kwargs)
         else:

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from firebase_admin.auth import UserRecord
 
 from backend.email import send_mail
@@ -11,7 +13,8 @@ def login_user(email: str, password: str) -> dict:
     if user.email_verified:
         data = login_to_firebase(email, password)
         token = data['idToken']
-        return {'status': 'success', 'token': token}
+        cookies = fb_auth.create_session_cookie(token, timedelta(seconds=1209600))
+        return {'status': 'success', 'cookies': cookies}
     raise HttpError(400, 'email has not been confirmed')
 
 
@@ -31,7 +34,7 @@ def create_user_info_dict(data: dict) -> dict:
     :param data: user_dict form authorization user's token
     :return: new user_dict with token path
     """
-    data['user_profile']['token'] = data['user_profile']['token'].path
+    data['token'] = data['token'].path
     return data
 
 

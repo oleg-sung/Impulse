@@ -1,5 +1,3 @@
-import os
-
 from flask import Flask
 from flask_mail import Mail
 from dotenv import load_dotenv
@@ -8,9 +6,6 @@ from dotenv import load_dotenv
 from backend.error import error_handler, HttpError
 
 load_dotenv()
-
-
-# basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
 app.config.from_object('config.DevelopmentConfig')

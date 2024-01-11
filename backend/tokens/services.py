@@ -19,6 +19,9 @@ def create_token_to_user(user_id, code=None) -> dict:
 
 
 def disable_user_token(user_id: str, token_id: str) -> dict:
+    """
+
+    """
     token_obj = get_token_info_by_id(token_id)
     token_dict = token_obj.to_dict()
     if token_dict['user_id'] == user_id:
@@ -28,6 +31,9 @@ def disable_user_token(user_id: str, token_id: str) -> dict:
 
 
 def get_all_token_by_id(user_id: str) -> dict:
+    """
+
+    """
     tokens_query = search_token_by_user_id(user_id)
     token_list = []
     for token in tokens_query.stream():

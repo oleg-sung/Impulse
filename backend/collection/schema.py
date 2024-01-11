@@ -1,5 +1,4 @@
 import re
-
 from enum import Enum
 from typing import Optional
 
@@ -78,3 +77,11 @@ class Collection(BaseModel):
     class Config:
         use_enum_values = True
         arbitrary_types_allowed = True
+
+
+class UpdateSizeCollection(BaseModel):
+    """ Update collection schema """
+    size: CollectionSize
+
+    class Config:
+        use_enum_values = True

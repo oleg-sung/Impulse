@@ -1,9 +1,8 @@
 from flask import Blueprint, jsonify, request
 
 from backend.collection.services import create_new_collection, change_status_collection, get_collection_data, \
-    get_all_collections_data, create_card_to_collection
+    get_all_collections_data, create_card_to_collection, change_size_collection
 from backend.users.decorators import authorization
-
 
 collection_api = Blueprint('collection', __name__)
 
@@ -33,7 +32,7 @@ def create_collection():
     return jsonify(data), 201
 
 
-@collection_api.route('/disable/<id_collection>/', methods=['PUT'])
+@collection_api.route('/<id_collection>/disable/', methods=['PUT'])
 @authorization
 def disable_collection(id_collection: str):
     """
@@ -43,19 +42,20 @@ def disable_collection(id_collection: str):
     return jsonify(data), 201
 
 
-@collection_api.route('/delete/<id_collections>/', methods=['DELETE'])
+@collection_api.route('/<id_collection>/delete/', methods=['DELETE'])
 @authorization
-def delete_collection(id_collections: str):
+def delete_collection(id_collection: str):
     ...
 
 
-@collection_api.route('/delete/<id_collection>/', methods=['PUT'])
+@collection_api.route('/<id_collection>/size/change/', methods=['PUT'])
 @authorization
-def change_size_collections(id_collection: str):
-    ...
+def change_size_collection(id_collection: str):
+    data = change_size_collection(id_collection, request.json)
+    return jsonify(data), 201
 
 
-@collection_api.route('/<id_collection>/create/card/', methods=['POST'])
+@collection_api.route('/<id_collection>/card/create/', methods=['POST'])
 @authorization
 def add_card_in_collection(id_collection: str):
     file = request.files['image']
@@ -65,19 +65,13 @@ def add_card_in_collection(id_collection: str):
     return jsonify({'success': True, **data}), 201
 
 
-@collection_api.route('/<id_collections>/create/card/', methods=['DELETE'])
+@collection_api.route('/<id_collection>/card/', methods=['DELETE'])
 @authorization
 def delete_card_from_collection(id_collections: str):
     ...
 
 
-@collection_api.route('/<id_collection>/get/cards/', methods=['GET'])
-@authorization
-def get_all_card_from_collection(id_collection: str):
-    ...
-
-
-@collection_api.route('/<id_collection>/get/card/<id_card>/', methods=['GET'])
+@collection_api.route('/<id_collection>/card/<id_card>/', methods=['GET'])
 @authorization
 def get_card_from_collection(id_collection: str, id_card: str):
     ...

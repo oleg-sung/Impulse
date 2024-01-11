@@ -9,7 +9,7 @@ token_api = Blueprint('tokens', __name__)
 @token_api.route('/', methods=['GET'])
 @authorization
 def get_all_user_token():
-    user_id = request.user['user']['localId']
+    user_id = request.user['user_id']
     data = get_all_token_by_id(user_id)
     return jsonify(data), 200
 
@@ -20,7 +20,7 @@ def create_token_for_auth():
     data = request.json
     if {'token'}.issubset(data):
         token_value = data['token']
-        user_id = request.user['user']['localId']
+        user_id = request.user['user_id']
         data = create_token_to_user(user_id, token_value)
         return jsonify(data), 201
 
@@ -30,7 +30,7 @@ def create_token_for_auth():
 @token_api.route('/disable/<token_id>/', methods=['PUT'])
 @authorization
 def disable_token_for_auth(token_id: str):
-    user_id = request.user['user']['localId']
+    user_id = request.user['user_id']
     data = disable_user_token(user_id, token_id)
     return jsonify(data), 201
 

@@ -15,7 +15,7 @@ def get_user_profile():
     Get dict with user's info using token authorization
     :return: JSON with user's info
     """
-    data = create_user_info_dict(request.user)
+    data = create_user_info_dict(request.user['user_profile'])
     return jsonify(data), 200
 
 
@@ -62,7 +62,7 @@ def change_password():
     Send password reset link to user's email address
     :return: JSON with status
     """
-    email = request.user['user']['email']
+    email = request.user['email']
     data = send_password_reset_link(email)
     return jsonify(data), 201
 
