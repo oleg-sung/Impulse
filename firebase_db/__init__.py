@@ -21,5 +21,5 @@ collection_model = db.collection('collection')
 pb = pyrebase.initialize_app(json.load(open('env/fb_kay.json')))
 pb_auth = pb.auth()
 
-# init storage backed
-bucket = storage.bucket('gs://impulse-b6e41.appspot.com')
+# init storage bucket
+bucket = storage.bucket(json.load(open('env/fb_kay.json'))['storageBucket'])

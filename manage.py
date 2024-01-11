@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_mail import Mail
 from dotenv import load_dotenv
@@ -6,6 +8,9 @@ from dotenv import load_dotenv
 from backend.error import error_handler, HttpError
 
 load_dotenv()
+
+
+# basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
 app.config.from_object('config.DevelopmentConfig')
@@ -24,6 +29,7 @@ app.register_error_handler(HttpError, error_handler)
 
 from backend.users import services, view, schema
 from backend.tokens import services, view, schema
+from backend.collection import services, view, schema
 
 if __name__ == '__main__':
     app.run()

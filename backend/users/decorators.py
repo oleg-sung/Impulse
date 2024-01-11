@@ -11,7 +11,7 @@ def authorization(f):
     Decorator for verifying user authorization using Authorization header from request
     Add dict with user information to request
     :param f: function to be decorated
-    :return:
+    :return: function's decorator
     """
     @wraps(f)
     def decorator(*args, **kwargs):

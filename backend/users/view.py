@@ -3,8 +3,7 @@ from flask import Blueprint, jsonify, request
 from backend.error import validate
 from .decorators import authorization
 from .schema import UserProfile
-from backend.users.services import user_register, login_user, get_user_profile_info_by_id, create_user_info_dict, \
-    send_password_reset_link
+from backend.users.services import user_register, login_user, create_user_info_dict, send_password_reset_link
 
 user_api = Blueprint('user', __name__)
 
@@ -66,3 +65,9 @@ def change_password():
     email = request.user['user']['email']
     data = send_password_reset_link(email)
     return jsonify(data), 201
+
+
+@user_api.route('/profile/change/', methods=['PUT'])
+@authorization
+def change_profile_info():
+    ...
