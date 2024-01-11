@@ -23,4 +23,3 @@ def error_handler(er: HttpError):
     http_response = jsonify({'status': 'error', 'message': er.message})
     http_response.status_code = er.status_code
     return http_response
-

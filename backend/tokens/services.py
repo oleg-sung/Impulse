@@ -121,8 +121,8 @@ def update_token_info(token: DocumentSnapshot, **kwargs) -> dict:
     :param kwargs: parameters to update token information
     :return: dict with status updated token
     """
+    data = validate({**kwargs}, UpdateToken)
     try:
-        data = validate({**kwargs}, UpdateToken)
         token.reference.update(data)
     except Exception as e:
         raise HttpError(400, str(e))

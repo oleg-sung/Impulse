@@ -34,3 +34,8 @@ def disable_token_for_auth(token_id: str):
     data = disable_user_token(user_id, token_id)
     return jsonify(data), 201
 
+
+@token_api.route('/delete/<token_id>/', methods=['DELETE'])
+@authorization
+def delete_token(token_id: str):
+    ...

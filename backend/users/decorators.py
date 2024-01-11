@@ -11,7 +11,7 @@ def authorization(f):
     Decorator for verifying user authorization using Authorization header from request
     Add dict with user information to request
     :param f: function to be decorated
-    :return:
+    :return: function's decorator
     """
     @wraps(f)
     def decorator(*args, **kwargs):
@@ -27,4 +27,6 @@ def authorization(f):
             user_dict = {'user': user_info['users'][0], 'user_profile': user_data}
             request.user = user_dict
             return f(*args, **kwargs)
+        else:
+            raise HttpError(400, 'Permission denied')
     return decorator

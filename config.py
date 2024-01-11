@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 
 class Config(object):
