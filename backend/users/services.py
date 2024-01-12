@@ -1,10 +1,14 @@
 from datetime import timedelta
+from typing import Union
 
 from firebase_admin.auth import UserRecord
+from google.cloud.exceptions import NotFound
+from google.cloud.firestore_v1 import DocumentSnapshot
 
 from backend.email import send_mail
-from backend.error import HttpError
+from backend.error import HttpError, validate
 from backend.tokens.services import create_token_to_user, create_token_reference_dict
+from backend.users.schema import UpdateUserProfile
 from firebase_db import fb_auth, user_profile_model, pb_auth
 
 
@@ -110,17 +114,17 @@ def get_user_info_by_email(email: str) -> UserRecord:
         raise HttpError(404, str(e))
 
 
-def get_user_profile_info_by_id(user_id: str) -> dict:
+def get_user_profile_info_by_id(user_id: str) -> DocumentSnapshot:
     """
     Get user profile info by user's uid
     :param user_id: user's uid
     :return: dict with user profile info
     """
     try:
-        user = user_profile_model.document(user_id).get()
+        user_doc = user_profile_model.document(user_id).get()
     except Exception as e:
         raise HttpError(404, str(e))
-    return user.to_dict()
+    return user_doc
 
 
 def login_to_firebase(email: str, password: str) -> dict:
@@ -143,10 +147,41 @@ def send_password_reset_link(email: str) -> dict:
     :param: email: user's email
     :return: status dict
     """
+    subject = 'Password Reset'
     try:
         link = fb_auth.generate_password_reset_link(email)
-        subject = 'Password Reset'
         send_mail(subject, email, link)
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
     return {'status': True, 'message': 'email sent successfully'}
+
+
+def change_user_profile(user_id: str, data: dict) -> dict:
+    """
+    Validating json data and update the user profile using validated data
+    :param user_id: the user id
+    :param data: json data to update
+    :return: dict with status updating and params that have been updated
+    """
+    data = validate(data, UpdateUserProfile)
+    user_profile_doc = get_user_profile_info_by_id(user_id)
+    data = update_user_profile(user_profile_doc, **data)
+    return data
+
+
+def update_user_profile(user_profile_doc: DocumentSnapshot, **kwargs: str) -> dict[str, Union[bool, str, dict]]:
+    """
+    Update user profile data
+    :param user_profile_doc: user profile to be updated type(Document Snapshot)
+    :param kwargs: user profile params that can be updated
+    :return: dict with status updating and params that have been updated
+    """
+    try:
+        user_profile_doc.reference.update({**kwargs})
+    except NotFound:
+        raise HttpError(404, f'User {user_profile_doc.id} not found')
+    return {
+        'status': True, 
+        'message': f'User profile has updated successful', 
+        'params': {**kwargs}
+        }

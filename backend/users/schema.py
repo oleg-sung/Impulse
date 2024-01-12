@@ -30,3 +30,12 @@ class UserProfile(BaseModel):
 
     class Config:
         use_enum_values = True
+
+
+class UpdateUserProfile(BaseModel):
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    birth_date: Optional[str] = None
+    phone: Optional[str] = None
+    info: Optional[str] = None

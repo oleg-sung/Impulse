@@ -105,6 +105,26 @@ def change_status_collection(data: dict, _id: str) -> dict:
     return status
 
 
+def change_size_collection(collection_id: str, data: dict) -> dict:
+    """
+    Change the size of collection
+    :param collection_id: the collection id
+    :param data: dict with a new size of collection for changing
+    :return: dict with status of change
+    """
+    collection_doc = get_collection_by_id(collection_id)
+    collection_dict = collection_doc.to_dict()
+    data = validate(data, UpdateSizeCollection)
+    if len(collection_dict['cards']) > data['size']:
+        raise HttpError(
+            400,
+            {'message': 'there are more images in the collection than in the new size'}
+        )
+    data = update_data_collection(collection_doc, **data)
+
+    return data
+
+
 def update_data_collection(collection_doc: DocumentSnapshot, **kwargs) -> dict:
     """
     Updating collection data using kwargs
@@ -191,23 +211,3 @@ def make_thumbnail(image: bytes) -> io.BytesIO:
     image.save(image_bytes, format=image.format)
     image = io.BytesIO(image_bytes.getvalue())
     return image
-
-
-def change_size_collection(collection_id: str, data: dict) -> dict:
-    """
-    Change the size of collection
-    :param collection_id: the collection id
-    :param data: dict with a new size of collection for changing
-    :return: dict with status of change
-    """
-    collection_doc = get_collection_by_id(collection_id)
-    collection_dict = collection_doc.to_dict()
-    data = validate(data, UpdateSizeCollection)
-    if len(collection_dict['cards']) > data['size']:
-        raise HttpError(
-            400,
-            {'message': 'there are more images in the collection than in the new size'}
-        )
-    data = update_data_collection(collection_doc, **data)
-
-    return data
