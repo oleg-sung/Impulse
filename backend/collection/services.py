@@ -1,9 +1,10 @@
 import io
+from typing import Union
 
 from PIL import Image
 from firebase_admin import firestore
 from google.cloud.exceptions import NotFound
-from google.cloud.firestore_v1 import DocumentSnapshot
+from google.cloud.firestore_v1 import DocumentSnapshot, ArrayUnion, ArrayRemove
 from google.cloud.storage import Blob
 from werkzeug.datastructures.file_storage import FileStorage
 
@@ -26,6 +27,7 @@ def get_collection_data(_id: str) -> dict:
     cards_list_path = data.pop('cards')
     cards_info = get_all_info_collection_cards(cards_list_path)
     data.update(cards_info)
+    bucket.delete_blobs()
 
     return {'status': 'success', 'data': data}
 
@@ -71,12 +73,9 @@ def create_new_collection(data: dict = None) -> dict:
     :param data: data to be validated
     :return: dict with create collection status
     """
-    data = validate(data, Collection)
-    status = create_collection_to_firebase(data)
 
-    if status:
-        return {'msg': 'Collection is created'}
-    return {'msg': 'Created error'}
+    collection = create_collection_to_firebase(data)
+    return c
 
 
 def create_collection_to_firebase(data: dict) -> bool:
@@ -85,11 +84,11 @@ def create_collection_to_firebase(data: dict) -> bool:
     :param data: dict with data for creating the collection
     :return: bool status
     """
-    try:
-        collection_model.document().set(data)
-    except Exception as e:
-        raise HttpError(400, str(e))
-    return True
+
+    data = validate(data, Collection)
+    collection = collection_model.document()
+    collection.set(data)
+    return collection.get()
 
 
 def change_status_collection(data: dict, _id: str) -> dict:
@@ -138,17 +137,25 @@ def update_data_collection(collection_doc: DocumentSnapshot, **kwargs) -> dict:
     return {'status': f'Collection {kwargs} has updated successful'}
 
 
-def add_card_to_collection(collection_doc: DocumentSnapshot, path: str) -> dict:
+def add_or_delete_card_to_collection(
+        collection_doc: DocumentSnapshot,
+        path: str,
+        method: Union[ArrayUnion, ArrayRemove] = firestore.ArrayUnion
+) -> dict:
     """
     Add the card to array collection using path in storage
     :param collection_doc: collection document in firebase(type DocumentSnapshot)
     :param path: the path to the image in the storage
+    :param method:
     """
     try:
-        collection_doc.reference.update({'cards': firestore.ArrayUnion((path,))})
+        collection_doc.reference.update({'cards': method((path,))})
     except NotFound:
         raise HttpError(404, f'Collection not found')
-    return {'status': f'A new card has been added to collection'}
+    return {
+        'status': 'A new card has been added to collection' if method == ArrayUnion
+        else 'This card has been removed from collection'
+    }
 
 
 def get_collection_by_id(_id: str) -> DocumentSnapshot:
@@ -173,7 +180,8 @@ def create_card_to_collection(data: FileStorage, metadata: dict) -> dict:
     metadata = validate(metadata, Card)
     content_type = data.content_type
     data = upload_image_to_firebase(image, image_name, content_type, metadata)
-    add_card_to_collection(collection_doc, data['path'])
+
+    data = add_or_delete_card_to_collection(collection_doc, data['path'])
 
     return data
 
@@ -194,8 +202,10 @@ def upload_image_to_firebase(image: bytes, image_name: str, content_type: str, m
     blob.metadata = metadata
     blob.content_type = content_type
     blob.upload_from_file(image_thumbnail)
+    metadata = blob.metadata
+    blob.metadata = metadata | {'id': blob.generation}
 
-    return {'status': 'image uploaded', 'path': blob.name}
+    return {'status': 'image uploaded', 'path': blob.name, 'id': blob.generation}
 
 
 def make_thumbnail(image: bytes) -> io.BytesIO:
@@ -211,3 +221,34 @@ def make_thumbnail(image: bytes) -> io.BytesIO:
     image.save(image_bytes, format=image.format)
     image = io.BytesIO(image_bytes.getvalue())
     return image
+
+
+def delete_card(id_collection: str, data: dict) -> dict:
+    """
+
+    """
+    path = data['path']
+    collection_doc = get_collection_by_id(id_collection)
+    if path not in collection_doc.to_dict()['cards']:
+        raise HttpError(404, 'This card is not in the collection')
+    status = delete_blob(path)
+    if status:
+        data = add_or_delete_card_to_collection(collection_doc, path, method=firestore.ArrayRemove)
+        return data
+
+
+def delete_blob(blob_name: str) -> bool:
+    """
+    Delete a blob from the storage
+    :param blob_name: name of the blob to delete
+    :return: True if successful or Http Error
+    """
+    try:
+        bucket.delete_blob(blob_name)
+    except Exception as e:
+        raise HttpError(400, str(e))
+    return True
+
+
+def delete_collection_by_id(collection_id: str) -> dict:
+    ...

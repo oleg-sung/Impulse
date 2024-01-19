@@ -8,8 +8,8 @@ from google.cloud.firestore_v1 import DocumentSnapshot
 from backend.email import send_mail
 from backend.error import HttpError, validate
 from backend.tokens.services import create_token_to_user, create_token_reference_dict
-from backend.users.schema import UpdateUserProfile
-from firebase_db import fb_auth, user_profile_model, pb_auth
+from backend.users.schema import UpdateUserProfile, Club, UserProfile
+from firebase_db import fb_auth, user_profile_model, pb_auth, club_model
 
 
 def login_user(email: str, password: str) -> dict:
@@ -18,15 +18,18 @@ def login_user(email: str, password: str) -> dict:
         data = login_to_firebase(email, password)
         token = data['idToken']
         cookies = fb_auth.create_session_cookie(token, timedelta(seconds=1209600))
-        return {'status': 'success', 'cookies': cookies}
+        return {'Session Cookies': cookies}
     raise HttpError(400, 'email has not been confirmed')
 
 
 def user_register(data: dict, password: str) -> dict:
+    
     user = create_user_to_firebase(data['email'], password)
-    status = create_token_to_user(user)
-    if status:
-        data = {**data, **create_token_reference_dict(user)}
+    club = create_club(data)
+    data['clubID'] = club.id
+    data['userCreatedID'] = user.uid
+    token = create_token_to_user(data)
+    data['token'] = token.reference
     create_user_profile(user, data)
     send_email_with_verification_link(user)
     return {'status': 'success'}
@@ -56,18 +59,31 @@ def create_user_to_firebase(email: str, password: str) -> UserRecord:
     return user
 
 
-def create_user_profile(user: UserRecord, data: dict) -> bool:
+def create_user_profile(user: UserRecord, data: dict) -> DocumentSnapshot:
     """
     Create a new document with user profile data to firebase
     :param user: created user's id
     :param data: validated data for user profile
     :return: True if user profile created
     """
+    token = data.pop('token')
+    data = validate(data, UserProfile)
+    user_profile = user_profile_model.document(user.uid)
     try:
-        user_profile_model.document(user.uid).set(data)
+        user_profile.set(data | {'token': token})
     except Exception as e:
         raise HttpError(400, str(e))
-    return True
+    return user_profile.get()
+
+
+def create_club(data: dict) -> DocumentSnapshot:
+    """
+
+    """
+    data = validate(data, Club)
+    club = club_model.document()
+    club.set(data)
+    return club.get()
 
 
 def send_email_with_verification_link(user: UserRecord) -> None:
@@ -137,7 +153,7 @@ def login_to_firebase(email: str, password: str) -> dict:
     try:
         user_dict = pb_auth.sign_in_with_email_and_password(email, password)
     except Exception as e:
-        raise HttpError(400, str(e))
+        raise HttpError(400, 'login or password is not correctly')
     return user_dict
 
 
@@ -181,7 +197,7 @@ def update_user_profile(user_profile_doc: DocumentSnapshot, **kwargs: str) -> di
     except NotFound:
         raise HttpError(404, f'User {user_profile_doc.id} not found')
     return {
-        'status': True, 
-        'message': f'User profile has updated successful', 
+        'status': True,
+        'message': f'User profile has updated successful',
         'params': {**kwargs}
-        }
+    }

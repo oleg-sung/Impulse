@@ -3,7 +3,7 @@ from functools import wraps
 from flask import request
 
 from backend.error import HttpError
-from backend.users.services import get_user_info_by_token, get_user_profile_info_by_id
+from backend.users.services import get_user_profile_info_by_id
 from firebase_db import fb_auth
 
 
@@ -17,14 +17,14 @@ def authorization(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         token = None
-        if 'Session_cookie' in request.cookies:
-            token = request.cookies['Session_cookie']
+        if 'Session Cookies' in request.cookies:
+            token = request.cookies.get('Session Cookies', None)
         if not token:
             raise HttpError(400, 'Permission denied')
         user = fb_auth.verify_session_cookie(token)
         user_doc = get_user_profile_info_by_id(user['user_id'])
         user_data = user_doc.to_dict()
-        if user_data['user_type'] == 'admin':
+        if user_data['userType'] == 'admin':
             user_dict = {**user, 'user_profile': user_data}
             request.user = user_dict
             return f(*args, **kwargs)

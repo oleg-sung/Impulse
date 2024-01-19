@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, make_response
 
 from backend.error import validate
 from .decorators import authorization
@@ -31,11 +31,11 @@ def register():
     :param: last_name: last name of the user
     :param: birth_date: birth date of the user
     :param: phone: phone number of the user
+    :param: club name: club name of the user
     :return: JSON
     """
     password = request.json.pop('password', None)
-    data = validate(request.json, UserProfile)
-    response_data = user_register(data, password)
+    response_data = user_register(request.json, password)
     return jsonify(response_data), 201
 
 
@@ -47,10 +47,11 @@ def login():
     :param: password: <PASSWORD>
     :return: JSON with user's token
     """
-    data = request.json
-    if {'email', 'password'}.issubset(data):
-        data = login_user(email=data['email'], password=data['password'])
-        return jsonify(data), 201
+    if {'email', 'password'}.issubset(request.json):
+        data = login_user(email=request.json['email'], password=request.json['password'])
+        res = make_response('Log in')
+        res.set_cookie('Session Cookies', data['Session Cookies'], max_age=60*60*24*365*2)
+        return res
 
     else:
         return jsonify({'error': 'Required fields were not passed'}), 400

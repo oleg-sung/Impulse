@@ -14,7 +14,7 @@ class CardType(str, Enum):
     COMMON = "common"
     UNCOMMON = "uncommon"
     RARE = 'rare'
-    MYTHICAL = 'mythical'
+    LEGENDARY = 'legendary'
 
 
 class Card(BaseModel):

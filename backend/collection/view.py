@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from backend.collection.services import create_new_collection, change_status_collection, get_collection_data, \
-    get_all_collections_data, create_card_to_collection, change_size_collection
+    get_all_collections_data, create_card_to_collection, change_size_collection, delete_card
 from backend.users.decorators import authorization
 
 collection_api = Blueprint('collection', __name__)
@@ -45,7 +45,8 @@ def disable_collection(id_collection: str):
 @collection_api.route('/<id_collection>/delete/', methods=['DELETE'])
 @authorization
 def delete_collection(id_collection: str):
-    ...
+    # data = delete_collection_by_id(id_collection)
+    return jsonify(), 204
 
 
 @collection_api.route('/<id_collection>/size/change/', methods=['PUT'])
@@ -65,10 +66,11 @@ def add_card_in_collection(id_collection: str):
     return jsonify({'success': True, **data}), 201
 
 
-@collection_api.route('/<id_collection>/card/', methods=['DELETE'])
+@collection_api.route('/<id_collection>/card/delete/', methods=['DELETE'])
 @authorization
-def delete_card_from_collection(id_collections: str):
-    ...
+def delete_card_from_collection(id_collection: str):
+    data = delete_card(id_collection, request.json)
+    return jsonify({'success': True, **data}), 204
 
 
 @collection_api.route('/<id_collection>/card/<id_card>/', methods=['GET'])

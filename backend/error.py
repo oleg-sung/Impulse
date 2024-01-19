@@ -13,7 +13,7 @@ class HttpError(Exception):
 def validate(json_data, schema):
     try:
         model = schema(**json_data)
-        return model.dict(exclude_none=True)
+        return model.dict(exclude_none=True, by_alias=True)
     except ValidationError as err:
         error_message = json.loads(err.json())
         raise HttpError(400, error_message)
