@@ -98,6 +98,7 @@ def change_status_collection(data: dict, _id: str) -> dict:
     :param _id: collection's id in firebase
     :return: dict with info about updated status
     """
+
     data = validate(data, Collection)
     collection_doc = get_collection_by_id(_id)
     status = update_data_collection(collection_doc, is_active=data['is_active'])
