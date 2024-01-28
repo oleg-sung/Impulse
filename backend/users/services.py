@@ -1,203 +1,139 @@
-from datetime import timedelta
-from typing import Union
+from google.cloud.firestore_v1 import DocumentReference
+from werkzeug.datastructures.file_storage import FileStorage
 
-from firebase_admin.auth import UserRecord
-from google.cloud.exceptions import NotFound
-from google.cloud.firestore_v1 import DocumentSnapshot
-
-from backend.email import send_mail
+from backend.collection.validators import image_validate
+from backend.email import send_mail, send_email_with_verification_link
 from backend.error import HttpError, validate
-from backend.tokens.services import create_token_to_user, create_token_reference_dict
-from backend.users.schema import UpdateUserProfile, Club, UserProfile
-from firebase_db import fb_auth, user_profile_model, pb_auth, club_model
+from backend.tokens.services import TokenService
+from backend.users.schema import UpdateUserProfileSchema, ClubSchema, UserProfileSchema, UpdateClubSchema
+from backend.firebase_db.services import Storage, FirebaseDB, FirebaseAuth
 
 
-def login_user(email: str, password: str) -> dict:
-    user = get_user_info_by_email(email)
-    if user.email_verified:
-        data = login_to_firebase(email, password)
+class UserProfileService:
+    user_profile_model_name = 'user_profile'
+
+    def __init__(self, user_id: str = None):
+        self.user_id = user_id
+        self.db = FirebaseDB()
+
+    def create_user_profile(self, data: dict) -> None:
+        """
+        Create a new document with user profile data to firebase
+        :param data: validated data for user profile
+        :return: user's profile document type Document Snapshot
+        """
+        data = validate(data, UserProfileSchema)
+        self.db.create_doc(self.user_profile_model_name, data, self.user_id)
+
+    def update_user_profile(self, data: dict) -> dict:
+        """
+
+        """
+        data = validate(data, UpdateUserProfileSchema)
+        self.db.update_doc(self.user_profile_model_name, self.user_id, data)
+        return {'status': True, 'message': 'User profile updated', 'id': self.user_id}
+
+    def get_user_profile(self) -> dict:
+        """
+
+        """
+        profile_doc = self.db.get_doc(self.user_profile_model_name, self.user_id)
+        data = profile_doc.to_dict()
+        data['token'] = data['token'].path
+        return data
+
+
+class ClubServices:
+    club_model_name = 'club'
+
+    def __init__(self, user_id: str = None):
+        self.user_id = user_id
+        self.db = FirebaseDB()
+
+    def create_club(self, data: dict) -> DocumentReference:
+        """
+
+        """
+        validated_data = validate(data, ClubSchema)
+        club = self.db.create_doc(self.club_model_name, validated_data, self.user_id)
+        return club
+
+    def get_club_dict(self) -> dict:
+        """
+
+        """
+        data = self.db.get_doc(self.club_model_name, self.user_id)
+        return data.to_dict()
+
+    def update_club(self, data: dict, image: FileStorage = None) -> dict:
+        """
+
+        """
+        if image:
+            blob_data = self.set_image_to_club(image)
+            data['image'] = blob_data[0]
+        validated_data = validate(data, UpdateClubSchema)
+        self.db.update_doc(self.club_model_name, self.user_id, validated_data)
+        return {'status': 'success', 'id': self.user_id}
+
+    def set_image_to_club(self, image: FileStorage):
+        image_bytes, image_name = image_validate(image)
+        blob_name = f'club/{self.user_id}.{image_name.split('.')[-1]}'
+        stor = Storage(blob_name)
+        blob = stor.get_blob()
+        if blob:
+            blob_data = stor.update_blob(content=image_bytes)
+        else:
+            blob_data = stor.create_blob(image_bytes, image.content_type)
+
+        return blob_data
+
+
+class UserServices(UserProfileService, ClubServices):
+
+    def __init__(self):
+        self.auth = FirebaseAuth()
+        super(UserProfileService, self).__init__()
+
+    def user_register(self, data: dict, password: str) -> dict:
+        """
+
+        """
+        user = self.auth.create_user_to_firebase(data['email'], password)
+        self.user_id = user.uid
+        self.create_club(data)
+        data['userCreatedID'] = self.user_id
+        data['clubID'] = self.user_id
+        data["code"] = 'IsAdminToken'
+        token = TokenService().create_token_document(data)
+        data['token'] = token.get().reference
+        self.create_user_profile(data)
+        send_email_with_verification_link(user, self.auth)
+        return {'status': 'success'}
+
+    def login_user(self, email: str, password: str) -> dict:
+        """
+
+        """
+        user = self.auth.get_user_by_email(email)
+        if not user.email_verified:
+            raise HttpError(400, 'email has not been confirmed')
+        data = self.auth.login_to_firebase(email, password)
         token = data['idToken']
-        cookies = fb_auth.create_session_cookie(token, timedelta(seconds=1209600))
-        return {'Session Cookies': cookies}
-    raise HttpError(400, 'email has not been confirmed')
+        cookies = self.auth.create_cookies(token)
+        return cookies
 
+    def send_password_reset_link(self, email: str) -> dict:
 
-def user_register(data: dict, password: str) -> dict:
-    
-    user = create_user_to_firebase(data['email'], password)
-    club = create_club(data)
-    data['clubID'] = club.id
-    data['userCreatedID'] = user.uid
-    token = create_token_to_user(data)
-    data['token'] = token.reference
-    create_user_profile(user, data)
-    send_email_with_verification_link(user)
-    return {'status': 'success'}
-
-
-def create_user_info_dict(data: dict) -> dict:
-    """
-    Change token to token path for reading json
-    :param data: user_dict form authorization user's token
-    :return: new user_dict with token path
-    """
-    data['token'] = data['token'].path
-    return data
-
-
-def create_user_to_firebase(email: str, password: str) -> UserRecord:
-    """
-    Create a new user to firebase
-    :param email: user's email address
-    :param password: user's password
-    :return: user objects
-    """
-    try:
-        user = fb_auth.create_user(email=email, password=password)
-    except Exception as e:
-        raise HttpError(400, str(e))
-    return user
-
-
-def create_user_profile(user: UserRecord, data: dict) -> DocumentSnapshot:
-    """
-    Create a new document with user profile data to firebase
-    :param user: created user's id
-    :param data: validated data for user profile
-    :return: True if user profile created
-    """
-    token = data.pop('token')
-    data = validate(data, UserProfile)
-    user_profile = user_profile_model.document(user.uid)
-    try:
-        user_profile.set(data | {'token': token})
-    except Exception as e:
-        raise HttpError(400, str(e))
-    return user_profile.get()
-
-
-def create_club(data: dict) -> DocumentSnapshot:
-    """
-
-    """
-    data = validate(data, Club)
-    club = club_model.document()
-    club.set(data)
-    return club.get()
-
-
-def send_email_with_verification_link(user: UserRecord) -> None:
-    """
-    Send email with verification link to user email address
-    :param user: object user(USer Record type)
-    :return: None
-    """
-    link = create_email_verification_link(user.email)
-    subject = f'Verification link for {user.uid}'
-    send_mail(subject, user.email, link)
-
-
-def create_email_verification_link(email: str) -> str:
-    """
-    Create email verification link to verify user's email address
-    :param email: user's email
-    :return: link to verify
-    """
-    return fb_auth.generate_email_verification_link(email)
-
-
-def get_user_info_by_token(token: str) -> dict:
-    """
-    Get user info by user's token and return
-    :param token: user's created at login
-    :return: dict with user info
-    """
-    try:
-        return pb_auth.get_account_info(token)
-    except Exception as e:
-        raise HttpError(400, str(e))
-
-
-def get_user_info_by_email(email: str) -> UserRecord:
-    """
-    Get user info by email and return
-    :param email: user's email
-    :return: object with user info
-    """
-    try:
-        return fb_auth.get_user_by_email(email)
-    except Exception as e:
-        raise HttpError(404, str(e))
-
-
-def get_user_profile_info_by_id(user_id: str) -> DocumentSnapshot:
-    """
-    Get user profile info by user's uid
-    :param user_id: user's uid
-    :return: dict with user profile info
-    """
-    try:
-        user_doc = user_profile_model.document(user_id).get()
-    except Exception as e:
-        raise HttpError(404, str(e))
-    return user_doc
-
-
-def login_to_firebase(email: str, password: str) -> dict:
-    """
-    Login to firebase
-    :param email: verified user's email
-    :param password: user's password
-    :return: user's dict with token and user info
-    """
-    try:
-        user_dict = pb_auth.sign_in_with_email_and_password(email, password)
-    except Exception as e:
-        raise HttpError(400, 'login or password is not correctly')
-    return user_dict
-
-
-def send_password_reset_link(email: str) -> dict:
-    """
-    Send letter with link to reset password to user's email address
-    :param: email: user's email
-    :return: status dict
-    """
-    subject = 'Password Reset'
-    try:
-        link = fb_auth.generate_password_reset_link(email)
-        send_mail(subject, email, link)
-    except Exception as e:
-        return {'status': 'error', 'message': str(e)}
-    return {'status': True, 'message': 'email sent successfully'}
-
-
-def change_user_profile(user_id: str, data: dict) -> dict:
-    """
-    Validating json data and update the user profile using validated data
-    :param user_id: the user id
-    :param data: json data to update
-    :return: dict with status updating and params that have been updated
-    """
-    data = validate(data, UpdateUserProfile)
-    user_profile_doc = get_user_profile_info_by_id(user_id)
-    data = update_user_profile(user_profile_doc, **data)
-    return data
-
-
-def update_user_profile(user_profile_doc: DocumentSnapshot, **kwargs: str) -> dict[str, Union[bool, str, dict]]:
-    """
-    Update user profile data
-    :param user_profile_doc: user profile to be updated type(Document Snapshot)
-    :param kwargs: user profile params that can be updated
-    :return: dict with status updating and params that have been updated
-    """
-    try:
-        user_profile_doc.reference.update({**kwargs})
-    except NotFound:
-        raise HttpError(404, f'User {user_profile_doc.id} not found')
-    return {
-        'status': True,
-        'message': f'User profile has updated successful',
-        'params': {**kwargs}
-    }
+        """
+        Send letter with link to reset password to user's email address
+        :param: email: user's email
+        :return: status dict
+        """
+        subject = 'Password Reset'
+        try:
+            link = self.auth.fb_auth.generate_password_reset_link(email)
+            send_mail.delay(subject, email, link)
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}
+        return {'status': True, 'message': 'email sent successfully'}

@@ -1,10 +1,11 @@
-import re
+import uuid
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, model_validator, field_validator
+from google.cloud.firestore_v1 import DocumentSnapshot
+from pydantic import BaseModel, model_validator, Field
 
-from firebase_db import collection_model
+from backend.firebase_db import collection_model, bucket
 
 
 class CardType(str, Enum):
@@ -19,39 +20,44 @@ class CardType(str, Enum):
 
 class Card(BaseModel):
     """Generic card schema"""
-    id: Optional[str] = None
+
     # reference collection path
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     collection: str
     type: CardType
     name: str
     info: str
 
-    @field_validator('collection')
-    @classmethod
-    def check_num_card_in_collection(cls, v: str):
+    @property
+    def get_collection_doc(self) -> DocumentSnapshot:
+        return collection_model.document(self.collection).get()
+
+    @model_validator(mode='after')
+    def check_num_card_in_collection(self):
         """
         Check that collection size will not be exceeded after adding the card to the collection
         """
-        collection_doc = collection_model.document(v).get()
-        collection_dict = collection_doc.to_dict()
+        collection_dict = self.get_collection_doc.to_dict()
         nums_cards = len(collection_dict['cards'])
-        if nums_cards + 1 > collection_dict['size']:
+        size = collection_dict['size']
+        size_dict = CollectionSize.get_size_dict()
+        if nums_cards + 1 > size_dict[size]:
             raise ValueError(
                 f'Collection has size of {collection_dict["size"]}'
             )
 
-        return v
+        return self
 
     @model_validator(mode='after')
     def check_card_name_in_storage(self):
         """
         Check that card name is not in storage
         """
-        collection_doc = collection_model.document(self.collection).get()
-        collection_cards = collection_doc.to_dict()['cards']
-        cards_name_list = list(map(lambda i: re.split('[/.]', i)[1], collection_cards))
-        card_name = f'{self.collection}_{self.name}_{self.type}'
-        if card_name in cards_name_list:
+        collection_cards = bucket.list_blobs(prefix=f'thumbnail/{self.collection}/')
+        name_list = [card.metadata['name'] for card in collection_cards]
+        duplicate_list = self.name in name_list
+
+        if duplicate_list:
             raise ValueError('Duplicate card')
         return self
 
@@ -59,29 +65,40 @@ class Card(BaseModel):
         use_enum_values = True
 
 
-class CollectionSize(int, Enum):
+class CollectionSize(str, Enum):
     """
     Enumeration of possible sizes of the collection
     """
-    forty_cards = 40
-    sixty_cards = 60
-    eighty_cards = 80
+    forty_cards = 'fortyCards'
+    sixty_cards = 'sixtyCards'
+    eighty_cards = 'eightyCards'
+
+    @staticmethod
+    def get_size_dict() -> dict[str, int]:
+        return {
+            'fortyCards': 40,
+            'sixtyCards': 60,
+            'eightyCards': 80
+        }
 
 
-class Collection(BaseModel):
+class CollectionSchema(BaseModel):
     """ Generic collection schema """
     size: CollectionSize = CollectionSize.forty_cards
     cards: list[str] = []
-    is_active: bool = True
+    is_active: bool = Field(default=True, alias='isActive')
+    name: str
+    owner: str = Field(alias='userCreatedID')
 
     class Config:
         use_enum_values = True
-        arbitrary_types_allowed = True
+        populate_by_name = True
 
 
-class UpdateSizeCollection(BaseModel):
+class UpdateCollection(BaseModel):
     """ Update collection schema """
-    size: CollectionSize
+    is_active: Optional[bool] = Field(default=None, alias='isActive')
 
     class Config:
         use_enum_values = True
+        populate_by_name = True

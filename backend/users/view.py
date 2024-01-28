@@ -1,10 +1,7 @@
 from flask import Blueprint, jsonify, request, make_response
 
-from backend.error import validate
 from .decorators import authorization
-from .schema import UserProfile
-from backend.users.services import user_register, login_user, create_user_info_dict, send_password_reset_link, \
-    change_user_profile
+from backend.users.services import UserServices, UserProfileService, ClubServices
 
 user_api = Blueprint('user', __name__)
 
@@ -16,7 +13,7 @@ def get_user_profile():
     Get dict with user's info using token authorization
     :return: JSON with user's info
     """
-    data = create_user_info_dict(request.user['user_profile'])
+    data = UserProfileService(request.user['user_id']).get_user_profile()
     return jsonify(data), 200
 
 
@@ -35,7 +32,7 @@ def register():
     :return: JSON
     """
     password = request.json.pop('password', None)
-    response_data = user_register(request.json, password)
+    response_data = UserServices().user_register(request.json, password)
     return jsonify(response_data), 201
 
 
@@ -48,9 +45,9 @@ def login():
     :return: JSON with user's token
     """
     if {'email', 'password'}.issubset(request.json):
-        data = login_user(email=request.json['email'], password=request.json['password'])
+        data = UserServices().login_user(email=request.json['email'], password=request.json['password'])
         res = make_response('Log in')
-        res.set_cookie('Session Cookies', data['Session Cookies'], max_age=60*60*24*365*2)
+        res.set_cookie('Session Cookies', data['Session Cookies'], max_age=60 * 60 * 24 * 365 * 2)
         return res
 
     else:
@@ -65,12 +62,40 @@ def change_password():
     :return: JSON with status
     """
     email = request.user['email']
-    data = send_password_reset_link(email)
+    data = UserServices().send_password_reset_link(email)
     return jsonify(data), 201
 
 
 @user_api.route('/profile/change/', methods=['PUT'])
 @authorization
 def change_profile_info():
-    data = change_user_profile(request.user['user_id'], request.json)
+    data = UserProfileService(request.user['user_id']).update_user_profile(request.json)
     return jsonify(data), 201
+
+
+@user_api.route('/club/change/', methods=['PUT'])
+@authorization
+def change_club_info():
+    image = request.files.get('image', None)
+    data = request.form.to_dict()
+    data = ClubServices(request.user['user_id']).update_club(data, image)
+    return jsonify(data), 200
+
+
+@user_api.route('/club/', methods=['GET'])
+@authorization
+def club_info():
+    data = ClubServices(request.user['user_id']).get_club_dict()
+    return jsonify(data), 200
+
+
+@user_api.route('/club/coaches/', methods=['GET'])
+@authorization
+def list_coach():
+    ...
+
+
+@user_api.route('/club/coaches/<id_coach>/set/', methods=['POST'])
+@authorization
+def set_coach():
+    ...

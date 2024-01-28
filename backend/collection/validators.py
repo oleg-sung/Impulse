@@ -18,7 +18,5 @@ def image_validate(file: FileStorage) -> tuple[bytes, str]:
             'allowed': ALLOWED_EXTENSIONS
         }
         raise HttpError(400, error_dict)
+
     return file.read(), file.filename
-
-
-
