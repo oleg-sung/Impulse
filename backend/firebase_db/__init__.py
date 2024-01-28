@@ -13,8 +13,9 @@ fb_auth = auth
 # init database
 db = firestore.client()
 # init database models
-user_profile_model = db.collection('user_profile')
-token_model = db.collection('tokens')
+club_model = db.collection('club')
+user_profile_model = db.collection('userProfile')
+token_model = db.collection('token')
 collection_model = db.collection('collection')
 
 # init pyrebase auth method

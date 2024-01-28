@@ -2,10 +2,10 @@ import os
 
 from dotenv import load_dotenv
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+ALLOWED_EXTENSIONS = {'jpg', 'jpeg'}
 
 
-class Config(object):
+class Config:
     # Определяет, включен ли режим отладки
     # В случае если включен, flask будет показывать
     # подробную отладочную информацию. Если выключен -
@@ -34,3 +34,6 @@ class ProductionConfig(Config):
 class DevelopmentConfig(Config):
     DEVELOPMENT = True
     DEBUG = True
+
+
+
